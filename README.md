@@ -2,7 +2,7 @@
 
 Combine OpenAI's Realtime API and Twilio's phone calling capability to build an AI calling assistant.
 
-<img width="1728" alt="Screenshot 2024-12-17 at 1 46 18 AM" src="https://github.com/user-attachments/assets/a390ced7-572d-4413-a892-547243b25217" />
+<img width="1728" alt="Screenshot 2024-12-18 at 4 59 30 PM" src="https://github.com/user-attachments/assets/d3c8dcce-b339-410c-85ca-864a8e0fc326" />
 
 ## Quick Setup
 
@@ -23,7 +23,7 @@ This repo implements a phone calling assistant with the Realtime API and Twilio,
 1. `webapp`: NextJS app to serve as a frontend for call configuration and transcripts
 2. `websocket-server`: Express backend that handles connection from Twilio, connects it to the Realtime API, and forwards messages to the frontend
 
-<img width="1282" alt="Screenshot 2024-12-17 at 12 54 12 PM" src="https://github.com/user-attachments/assets/e0029f7c-63d7-480d-bfdc-1d7ec983eff8" />
+<img width="1282" alt="Screenshot 2024-12-17 at 12 54 12 PM" src="https://github.com/user-attachments/assets/d6999201-3028-4b5d-8bdd-33822470260c" />
 
 Twilio uses TwiML (a form of XML) to specify how to handle a phone call. When a call comes in we tell Twilio to start a bi-directional stream to our backend, where we forward messages between the call and the Realtime API. (`{{WS_URL}}` is replaced with our websocket endpoint.)
 
