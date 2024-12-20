@@ -22,8 +22,7 @@ This repo implements a phone calling assistant with the Realtime API and Twilio,
 
 1. `webapp`: NextJS app to serve as a frontend for call configuration and transcripts
 2. `websocket-server`: Express backend that handles connection from Twilio, connects it to the Realtime API, and forwards messages to the frontend
-
-<img width="1282" alt="Screenshot 2024-12-17 at 12 54 12 PM" src="https://github.com/user-attachments/assets/d6999201-3028-4b5d-8bdd-33822470260c" />
+<img width="1514" alt="Screenshot 2024-12-20 at 10 32 40 AM" src="https://github.com/user-attachments/assets/61d39b88-4861-4b6f-bfe2-796957ab5476" />
 
 Twilio uses TwiML (a form of XML) to specify how to handle a phone call. When a call comes in we tell Twilio to start a bi-directional stream to our backend, where we forward messages between the call and the Realtime API. (`{{WS_URL}}` is replaced with our websocket endpoint.)
 
