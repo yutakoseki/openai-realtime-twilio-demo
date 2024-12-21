@@ -1,8 +1,6 @@
 import { RawData, WebSocket } from "ws";
 import functions from "./functionHandlers";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-
 interface Session {
   twilioConn?: WebSocket;
   frontendConn?: WebSocket;
@@ -12,13 +10,15 @@ interface Session {
   lastAssistantItem?: string;
   responseStartTimestamp?: number;
   latestMediaTimestamp?: number;
+  openAIApiKey?: string;
 }
 
 let session: Session = {};
 
-export function handleCallConnection(ws: WebSocket) {
+export function handleCallConnection(ws: WebSocket, openAIApiKey: string) {
   cleanupConnection(session.twilioConn);
   session.twilioConn = ws;
+  session.openAIApiKey = openAIApiKey;
 
   ws.on("message", handleTwilioMessage);
   ws.on("error", ws.close);
@@ -116,14 +116,15 @@ function handleFrontendMessage(data: RawData) {
 }
 
 function tryConnectModel() {
-  if (!session.twilioConn || !session.streamSid) return;
+  if (!session.twilioConn || !session.streamSid || !session.openAIApiKey)
+    return;
   if (isOpen(session.modelConn)) return;
 
   session.modelConn = new WebSocket(
     "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
     {
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${session.openAIApiKey}`,
         "OpenAI-Beta": "realtime=v1",
       },
     }
