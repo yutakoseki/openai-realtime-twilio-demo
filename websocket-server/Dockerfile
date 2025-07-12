@@ -14,6 +14,9 @@ COPY . .
 # TypeScriptをコンパイル
 RUN npm run build
 
+# twiml.xmlファイルをdistディレクトリにコピー
+RUN cp src/twiml.xml dist/twiml.xml
+
 # ポートを公開
 EXPOSE 8081
 
