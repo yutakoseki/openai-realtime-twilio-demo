@@ -10,9 +10,18 @@ applications:
           commands:
             - npm run build
       artifacts:
-        baseDirectory: out
+        baseDirectory: .next
         files:
           - '**/*'
+        - path: /node_modules/**
+          target: .
       cache:
         paths:
-          - node_modules/**/* 
+          - node_modules/**/*
+      customHeaders:
+        - pattern: '**/*'
+          headers:
+            - key: 'Cache-Control'
+              value: 'max-age=0, no-cache, no-store, must-revalidate'
+      buildPath: .
+      startCommand: npm start 
