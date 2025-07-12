@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Application Load Balancer for OpenAI Twilio Demo'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+  VPCId:
+    Type: String
+    Description: VPC ID
+  PublicSubnet1:
+    Type: String
+    Description: Public Subnet 1
+  PublicSubnet2:
+    Type: String
+    Description: Public Subnet 2
+  SecurityGroupId:
+    Type: String
+    Description: Security Group ID
+  DomainName:
+    Type: String
+    Description: Domain name for the ALB
+  CertificateArn:
+    Type: String
+    Description: SSL Certificate ARN
+
+Resources:
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${Environment}-alb'
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref SecurityGroupId
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+        - Key: access_logs.s3.enabled
+          Value: 'true'
+        - Key: access_logs.s3.bucket
+          Value: !Ref AccessLogsBucket
+        - Key: access_logs.s3.prefix
+          Value: 'alb-logs'
+
+  AccessLogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-alb-access-logs-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 90
+
+  TargetGroupWebApp:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-webapp-tg'
+      Port: 3000
+      Protocol: HTTP
+      VpcId: !Ref VPCId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /api/health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+
+  TargetGroupWebSocket:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${Environment}-websocket-tg'
+      Port: 8081
+      Protocol: HTTP
+      VpcId: !Ref VPCId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /public-url
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-2017-01
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupWebApp
+
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: '443'
+            StatusCode: HTTP_301
+
+  ListenerRuleWebSocket:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref ListenerHTTPS
+      Priority: 100
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /call*
+            - /logs*
+            - /twiml*
+            - /public-url*
+            - /tools*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupWebSocket
+
+Outputs:
+  LoadBalancerDNS:
+    Description: Load Balancer DNS Name
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${Environment}-alb-dns'
+
+  LoadBalancerArn:
+    Description: Load Balancer ARN
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: !Sub '${Environment}-alb-arn'
+
+  TargetGroupWebAppArn:
+    Description: WebApp Target Group ARN
+    Value: !Ref TargetGroupWebApp
+    Export:
+      Name: !Sub '${Environment}-webapp-tg-arn'
+
+  TargetGroupWebSocketArn:
+    Description: WebSocket Target Group ARN
+    Value: !Ref TargetGroupWebSocket
+    Export:
+      Name: !Sub '${Environment}-websocket-tg-arn' 

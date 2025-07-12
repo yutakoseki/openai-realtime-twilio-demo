@@ -1,0 +1,74 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ECS", "CPUUtilization", "ServiceName", "websocket-server", "ClusterName", "openai-twilio-demo"],
+          [".", "CPUUtilization", "ServiceName", "webapp", ".", "."]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-1",
+        "title": "ECS CPU Utilization",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ECS", "MemoryUtilization", "ServiceName", "websocket-server", "ClusterName", "openai-twilio-demo"],
+          [".", "MemoryUtilization", "ServiceName", "webapp", ".", "."]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-1",
+        "title": "ECS Memory Utilization",
+        "period": 300
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "app/openai-twilio-demo-alb/1234567890abcdef"],
+          [".", "TargetResponseTime", ".", "."],
+          [".", "HTTPCode_Target_2XX_Count", ".", "."],
+          [".", "HTTPCode_Target_4XX_Count", ".", "."],
+          [".", "HTTPCode_Target_5XX_Count", ".", "."]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-1",
+        "title": "ALB Metrics",
+        "period": 300
+      }
+    },
+    {
+      "type": "log",
+      "x": 12,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/ecs/websocket-server'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+        "region": "ap-northeast-1",
+        "title": "WebSocket Server Errors",
+        "view": "table"
+      }
+    }
+  ]
+} 

@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudWatch Alarms for OpenAI Twilio Demo'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+  SNSNotificationEmail:
+    Type: String
+    Description: Email address for SNS notifications
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${Environment}-alerts'
+      DisplayName: !Sub '${Environment} Alerts'
+
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref SNSTopic
+      Protocol: email
+      Endpoint: !Ref SNSNotificationEmail
+
+  # ECS CPU アラーム
+  ECSWebSocketCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-websocket-cpu-high'
+      AlarmDescription: WebSocket server CPU utilization is high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: websocket-server
+        - Name: ClusterName
+          Value: openai-twilio-demo
+      AlarmActions:
+        - !Ref SNSTopic
+
+  ECSWebAppCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-webapp-cpu-high'
+      AlarmDescription: WebApp CPU utilization is high
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: webapp
+        - Name: ClusterName
+          Value: openai-twilio-demo
+      AlarmActions:
+        - !Ref SNSTopic
+
+  # ECS メモリアラーム
+  ECSWebSocketMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-websocket-memory-high'
+      AlarmDescription: WebSocket server memory utilization is high
+      MetricName: MemoryUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: websocket-server
+        - Name: ClusterName
+          Value: openai-twilio-demo
+      AlarmActions:
+        - !Ref SNSTopic
+
+  ECSWebAppMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-webapp-memory-high'
+      AlarmDescription: WebApp memory utilization is high
+      MetricName: MemoryUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ServiceName
+          Value: webapp
+        - Name: ClusterName
+          Value: openai-twilio-demo
+      AlarmActions:
+        - !Ref SNSTopic
+
+  # ALB エラーアラーム
+  ALB5XXAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-alb-5xx-errors'
+      AlarmDescription: ALB 5XX errors are high
+      MetricName: HTTPCode_Target_5XX_Count
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: app/openai-twilio-demo-alb/1234567890abcdef
+      AlarmActions:
+        - !Ref SNSTopic
+
+  # ターゲットヘルスアラーム
+  TargetHealthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${Environment}-target-health-unhealthy'
+      AlarmDescription: Unhealthy targets detected
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Average
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: LoadBalancer
+          Value: app/openai-twilio-demo-alb/1234567890abcdef
+      AlarmActions:
+        - !Ref SNSTopic
+
+Outputs:
+  SNSTopicArn:
+    Description: SNS Topic ARN for alerts
+    Value: !Ref SNSTopic
+    Export:
+      Name: !Sub '${Environment}-sns-topic-arn' 
