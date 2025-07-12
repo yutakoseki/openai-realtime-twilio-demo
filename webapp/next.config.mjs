@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Amplify用の設定
-  output: 'export',
+  // APIルートを使用するため、静的エクスポートを無効化
+  // output: 'export',
   trailingSlash: true,
   images: {
     unoptimized: true
