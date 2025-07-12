@@ -132,6 +132,15 @@ CERTIFICATE_ARN=$(aws acm list-certificates --query "CertificateSummaryList[?Dom
 - ECSサービスの作成
 - CloudWatchアラームの設定
 
+### Dockerインストール
+※ UbuntuにDockerが入っていない場合はインストール
+```sh
+./docker-install.sh
+```
+```sh
+docker --version
+```
+
 ### ステップ5: Twilioの設定
 
 #### 5.1 Twilioアカウントの準備
@@ -143,7 +152,10 @@ CERTIFICATE_ARN=$(aws acm list-certificates --query "CertificateSummaryList[?Dom
 ```bash
 # ALBのDNS名を取得
 ALB_DNS=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text)
+```
 
+下記出力しtwilioのWebhookに登録
+```sh
 echo "Twilio Webhook URL: https://$ALB_DNS/twiml"
 ```
 

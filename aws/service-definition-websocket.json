@@ -4,7 +4,7 @@
   "taskDefinition": "websocket-server",
   "loadBalancers": [
     {
-      "targetGroupArn": "TARGET_GROUP_ARN",
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:397918944995:targetgroup/production-websocket-tg/4102aa8631193a58",
       "containerName": "websocket-server",
       "containerPort": 8081
     }
@@ -15,11 +15,11 @@
   "networkConfiguration": {
     "awsvpcConfiguration": {
       "subnets": [
-        "PRIVATE_SUBNET_1",
-        "PRIVATE_SUBNET_2"
+        "subnet-070a751f085cfeba1",
+        "subnet-0373ae7354bddf4b1"
       ],
       "securityGroups": [
-        "SECURITY_GROUP_ID"
+        "sg-0122877b80c22171a"
       ],
       "assignPublicIp": "DISABLED"
     }
