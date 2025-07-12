@@ -13,8 +13,6 @@ applications:
         baseDirectory: .next
         files:
           - '**/*'
-        - path: /node_modules/**
-          target: .
       cache:
         paths:
           - node_modules/**/*
