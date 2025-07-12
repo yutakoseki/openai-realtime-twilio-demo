@@ -84,11 +84,9 @@ aws cloudformation wait stack-create-complete --stack-name openai-twilio-alb
 # 4. ALBの出力値を取得
 echo "📊 ALBの出力値を取得中..."
 ALB_DNS=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text)
-WEBAPP_TG_ARN=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`TargetGroupWebAppArn`].OutputValue' --output text)
 WEBSOCKET_TG_ARN=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`TargetGroupWebSocketArn`].OutputValue' --output text)
 
 echo "ALB DNS: $ALB_DNS"
-echo "WebApp Target Group ARN: $WEBAPP_TG_ARN"
 echo "WebSocket Target Group ARN: $WEBSOCKET_TG_ARN"
 
 # 5. PUBLIC_URLを更新
@@ -102,27 +100,20 @@ aws ssm put-parameter \
 # 6. タスク定義ファイルのACCOUNT_IDを置換
 echo "📝 タスク定義ファイルを更新中..."
 sed -i "s/ACCOUNT_ID/$ACCOUNT_ID/g" aws/task-definition-websocket.json
-sed -i "s/ACCOUNT_ID/$ACCOUNT_ID/g" aws/task-definition-webapp.json
 
 # 7. タスク定義を登録
 echo "📋 タスク定義を登録中..."
 aws ecs register-task-definition --cli-input-json file://aws/task-definition-websocket.json
-aws ecs register-task-definition --cli-input-json file://aws/task-definition-webapp.json
 
 # 8. サービス定義ファイルの値を置換
 echo "📝 サービス定義ファイルを更新中..."
-sed -i "s|TARGET_GROUP_ARN|$WEBAPP_TG_ARN|g" aws/service-definition-webapp.json
 sed -i "s|TARGET_GROUP_ARN|$WEBSOCKET_TG_ARN|g" aws/service-definition-websocket.json
-sed -i "s|PRIVATE_SUBNET_1|$PRIVATE_SUBNET_1|g" aws/service-definition-webapp.json
-sed -i "s|PRIVATE_SUBNET_2|$PRIVATE_SUBNET_2|g" aws/service-definition-webapp.json
 sed -i "s|PRIVATE_SUBNET_1|$PRIVATE_SUBNET_1|g" aws/service-definition-websocket.json
 sed -i "s|PRIVATE_SUBNET_2|$PRIVATE_SUBNET_2|g" aws/service-definition-websocket.json
-sed -i "s|SECURITY_GROUP_ID|$SECURITY_GROUP_ID|g" aws/service-definition-webapp.json
 sed -i "s|SECURITY_GROUP_ID|$SECURITY_GROUP_ID|g" aws/service-definition-websocket.json
 
 # 9. ECSサービスを作成
 echo "🚀 ECSサービスを作成中..."
-aws ecs create-service --cli-input-json file://aws/service-definition-webapp.json 2>/dev/null || echo "WebAppサービスは既に存在します"
 aws ecs create-service --cli-input-json file://aws/service-definition-websocket.json 2>/dev/null || echo "WebSocketサービスは既に存在します"
 
 # 10. CloudWatchアラームのデプロイ
@@ -139,10 +130,11 @@ aws cloudformation wait stack-create-complete --stack-name openai-twilio-alarms
 
 echo "✅ インフラデプロイ完了！"
 echo ""
-echo "🌐 アプリケーションURL: https://$ALB_DNS"
+echo "🌐 WebSocketサーバーURL: https://$ALB_DNS"
 echo "📞 Twilio Webhook URL: https://$ALB_DNS/twiml"
 echo ""
 echo "次のステップ："
 echo "1. TwilioコンソールでWebhook URLを設定してください"
-echo "2. ./deploy.sh を実行してアプリケーションをデプロイしてください"
-echo "3. アプリケーションの動作をテストしてください" 
+echo "2. ./deploy-websocket.sh を実行してWebSocketサーバーをデプロイしてください"
+echo "3. Amplifyでフロントエンドをデプロイしてください"
+echo "4. アプリケーションの動作をテストしてください" 

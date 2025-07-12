@@ -61,15 +61,12 @@ aws iam put-role-policy \
 # 3. ECRリポジトリの作成
 echo "📦 ECRリポジトリを作成中..."
 aws ecr create-repository --repository-name websocket-server 2>/dev/null || echo "WebSocketリポジトリは既に存在します"
-aws ecr create-repository --repository-name webapp 2>/dev/null || echo "WebAppリポジトリは既に存在します"
 
 # 4. CloudWatchロググループの作成
 echo "📊 CloudWatchロググループを作成中..."
 aws logs create-log-group --log-group-name /ecs/websocket-server 2>/dev/null || echo "WebSocketロググループは既に存在します"
-aws logs create-log-group --log-group-name /ecs/webapp 2>/dev/null || echo "WebAppロググループは既に存在します"
 
 aws logs put-retention-policy --log-group-name /ecs/websocket-server --retention-in-days 30
-aws logs put-retention-policy --log-group-name /ecs/webapp --retention-in-days 30
 
 # 5. VPCスタックのデプロイ
 echo "🌐 VPCスタックをデプロイ中..."
@@ -110,4 +107,5 @@ echo ""
 echo "次のステップ："
 echo "1. 上記の環境変数を設定してください"
 echo "2. SSL証明書を取得してください（カスタムドメインがある場合）"
-echo "3. ./deploy-infrastructure.sh を実行してインフラをデプロイしてください" 
+echo "3. ./deploy-infrastructure.sh を実行してインフラをデプロイしてください"
+echo "4. Amplifyでフロントエンドをデプロイしてください" 
