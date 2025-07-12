@@ -8,6 +8,7 @@
 - **AWSアカウント**: 有効なAWSアカウント
 - **Twilioアカウント**: 音声通話用のアカウント（https://console.twilio.com/）
 - **OpenAI APIキー**: Realtime API用のAPIキー
+- **GitHubアカウント**: フロントエンド用のリポジトリ
 
 ### 必要なツール
 - AWS CLI（最新版）
@@ -15,12 +16,13 @@
 - Git
 
 ### コスト見積もり（月額）
-- **ECS Fargate**: $20-50（使用量による）
+- **ECS Fargate**: $15-30（WebSocketサーバーのみ）
 - **Application Load Balancer**: $20-30
 - **CloudWatch**: $5-10
+- **Amplify**: $1-5（フロントエンド）
 - **Twilio電話番号**: $1.15
 - **データ転送**: $5-15
-- **合計**: $50-110/月
+- **合計**: $45-90/月
 
 ## 🚀 デプロイ手順
 
@@ -47,29 +49,67 @@ aws configure
 git clone https://github.com/your-repo/openai-realtime-twilio-demo.git
 cd openai-realtime-twilio-demo
 
-# 必要なパッケージのインストール
-cd webapp && npm install
-cd ../websocket-server && npm install
+# WebSocketサーバーの依存関係をインストール
+cd websocket-server && npm install
 cd ..
 ```
 
-### ステップ2: 初期セットアップ
+### ステップ2: フロントエンド用リポジトリの作成
 
-#### 2.1 初期セットアップスクリプトの実行
+#### 2.1 フロントエンド専用リポジトリの作成
 ```bash
+# 新しいディレクトリを作成
+mkdir twilio-realtime-frontend
+cd twilio-realtime-frontend
+
+# webappの内容をコピー
+cp -r ../openai-realtime-twilio-demo/webapp/* .
+
+# Gitリポジトリを初期化
+git init
+git add .
+git commit -m "Initial commit: Twilio Realtime Frontend"
+git branch -M main
+```
+
+#### 2.2 GitHubでリポジトリを作成
+1. GitHub.comにアクセス
+2. 右上の「+」ボタンをクリック
+3. 「New repository」を選択
+4. リポジトリ名: `twilio-realtime-frontend`
+5. 説明: `OpenAI Realtime Twilio Demo Frontend`
+6. Public/Privateを選択
+7. 「Create repository」をクリック
+
+#### 2.3 リポジトリにプッシュ
+```bash
+# リモートリポジトリを追加（YOUR_USERNAMEを実際のユーザー名に置き換え）
+git remote add origin https://github.com/YOUR_USERNAME/twilio-realtime-frontend.git
+
+# メインブランチをプッシュ
+git push -u origin main
+```
+
+### ステップ3: 初期セットアップ
+
+#### 3.1 初期セットアップスクリプトの実行
+```bash
+# 元のプロジェクトディレクトリに戻る
+cd ../openai-realtime-twilio-demo
+
 # 初期セットアップを実行
 ./setup.sh
 ```
 
 このスクリプトは以下を実行します：
-- ECSクラスターの作成
+- ECSクラスターの作成（WebSocketサーバー用）
 - タスク実行ロールの作成
 - ECRリポジトリの作成
 - CloudWatchロググループの作成
 - VPCスタックのデプロイ
 - WAFスタックのデプロイ
 
-#### 2.2 環境変数の設定
+#### 3.2 環境変数の設定
 ```bash
 # OpenAI APIキー
 aws ssm put-parameter \
@@ -95,14 +135,13 @@ aws ssm put-parameter \
     --type "String"
 ```
 
-### ステップ3: SSL証明書の設定（サブドメイン）
+### ステップ4: SSL証明書の設定（サブドメイン）
 Route53 > ホストゾーン > `任意のレコード` > レコードを作成
 レコード名:任意
 レコードタイプ:A - IPv4
 値:127.0.0.1(一旦仮置き。後でALBのDNSに変更する)
 
-
-#### 3.1 SSL証明書のリクエスト
+#### 4.1 SSL証明書のリクエスト
 ```bash
 # ドメイン名を取得
 DOMAIN_NAME=$(aws ssm get-parameter --name "/openai-twilio-demo/DOMAIN_NAME" --query 'Parameter.Value' --output text)
@@ -117,24 +156,24 @@ aws acm request-certificate \
 CERTIFICATE_ARN=$(aws acm list-certificates --query "CertificateSummaryList[?DomainName=='$DOMAIN_NAME'].CertificateArn" --output text)
 ```
 
-#### 3.2 DNS検証の完了
+#### 4.2 DNS検証の完了
 1. AWS Certificate Managerコンソールで証明書の詳細を確認
 2. Route53でレコードを作成をクリック
 3. DNS検証用のCNAMEレコードをDNSプロバイダーに追加
 4. 検証が完了するまで待機（通常5-10分）
 
-### ステップ4: インフラのデプロイ
+### ステップ5: インフラのデプロイ
 
-#### 4.1 インフラデプロイスクリプトの実行
+#### 5.1 インフラデプロイスクリプトの実行
 ```bash
 # インフラをデプロイ
 ./deploy-infrastructure.sh
 ```
 
 このスクリプトは以下を実行します：
-- ALBスタックのデプロイ
+- ALBスタックのデプロイ（WebSocketサーバー用）
 - タスク定義の登録
-- ECSサービスの作成
+- ECSサービスの作成（WebSocketサーバーのみ）
 - CloudWatchアラームの設定
 
 ### Dockerインストール
@@ -146,14 +185,43 @@ CERTIFICATE_ARN=$(aws acm list-certificates --query "CertificateSummaryList[?Dom
 docker --version
 ```
 
-### ステップ5: Twilioの設定
+### ステップ6: Amplifyでのフロントエンドデプロイ
 
-#### 5.1 Twilioアカウントの準備
+#### 6.1 Amplifyアプリの作成
+1. **AWS Amplifyコンソールにアクセス**
+2. **「New app」→「Host web app」をクリック**
+3. **GitHubを選択してリポジトリを接続**
+4. **`twilio-realtime-frontend`リポジトリを選択**
+5. **ブランチ: `main`を選択**
+6. **「Next」をクリック**
+7. **ビルド設定は自動検出されるはず**
+8. **「Save and deploy」をクリック**
+
+#### 6.2 環境変数の設定
+Amplifyコンソールで以下の環境変数を設定：
+
+- **キー**: `NEXT_PUBLIC_WEBSOCKET_URL`
+- **値**: `wss://[ALB_DNS]`（ALBのDNS名を後で設定）
+
+#### 6.3 ALBのDNS名を取得して環境変数を更新
+```bash
+# ALBのDNS名を取得
+ALB_DNS=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text)
+
+echo "WebSocket URL: wss://$ALB_DNS"
+```
+
+Amplifyコンソールで環境変数を更新：
+- `NEXT_PUBLIC_WEBSOCKET_URL`: `wss://$ALB_DNS`
+
+### ステップ7: Twilioの設定
+
+#### 7.1 Twilioアカウントの準備
 1. **Twilioアカウントの作成**: https://console.twilio.com/ でアカウントを作成
 2. **電話番号の取得**: 音声通話可能な電話番号を取得（約$1.15/月）
 3. **認証情報の取得**: Account SIDとAuth Tokenを取得
 
-#### 5.2 Twilio Webhookの設定
+#### 7.2 Twilio Webhookの設定
 ```bash
 # ALBのDNS名を取得
 ALB_DNS=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text)
@@ -182,12 +250,12 @@ Route53で作成したサブドメインを修正 > エイリアスをON
 aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text
 ```
 
-### ステップ6: アプリケーションのデプロイ
+### ステップ8: WebSocketサーバーのデプロイ
 
-#### 6.1 アプリケーションデプロイスクリプトの実行
+#### 8.1 WebSocketサーバーデプロイスクリプトの実行
 ```bash
-# アプリケーションをデプロイ
-./deploy.sh
+# WebSocketサーバーのみをデプロイ
+./deploy-websocket.sh
 ```
 
 このスクリプトは以下を実行します：
@@ -196,29 +264,30 @@ aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stack
 - タスク定義の更新
 - サービスの更新
 
-### ステップ7: 動作確認
+### ステップ9: 動作確認
 
-#### 7.1 アプリケーションの確認
+#### 9.1 アプリケーションの確認
 ```bash
 # ALBのDNS名を取得
 ALB_DNS=$(aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text)
 
-echo "アプリケーションURL: https://$ALB_DNS"
+echo "WebSocketサーバーURL: https://$ALB_DNS"
+echo "フロントエンドURL: [Amplifyで提供されるURL]"
 ```
 
-#### 7.2 ヘルスチェック
+#### 9.2 ヘルスチェック
 ```bash
-# WebAppのヘルスチェック
-curl https://$ALB_DNS/api/health
-
 # WebSocketサーバーのヘルスチェック
 curl https://$ALB_DNS/public-url
+
+# Amplifyアプリのヘルスチェック
+curl [Amplify URL]/api/health
 ```
 
-#### 7.3 音声通話のテスト
+#### 9.3 音声通話のテスト
 1. Twilioで取得した電話番号に電話をかける
 2. AIアシスタントとの会話をテスト
-3. WebAppでトランスクリプトを確認
+3. Amplifyアプリでトランスクリプトを確認
 
 ## 🔧 運用とメンテナンス
 
@@ -227,14 +296,13 @@ curl https://$ALB_DNS/public-url
 # WebSocketサーバーのログ
 aws logs tail /ecs/websocket-server --follow
 
-# WebAppのログ
-aws logs tail /ecs/webapp --follow
+# Amplifyアプリのログ（Amplifyコンソールで確認）
 ```
 
 ### メトリクスの確認
 ```bash
 # ECSサービスの状態確認
-aws ecs describe-services --cluster openai-twilio-demo --services websocket-server webapp
+aws ecs describe-services --cluster openai-twilio-demo --services websocket-server
 
 # CloudWatchメトリクスの確認
 aws cloudwatch get-metric-statistics \
@@ -249,15 +317,10 @@ aws cloudwatch get-metric-statistics \
 
 ### スケーリング
 ```bash
-# サービスのスケール
+# WebSocketサーバーのスケール
 aws ecs update-service \
     --cluster openai-twilio-demo \
     --service websocket-server \
-    --desired-count 3
-
-aws ecs update-service \
-    --cluster openai-twilio-demo \
-    --service webapp \
     --desired-count 3
 ```
 
@@ -301,9 +364,7 @@ aws cloudformation update-stack \
 ```bash
 # ECSサービスの削除
 aws ecs update-service --cluster openai-twilio-demo --service websocket-server --desired-count 0
-aws ecs update-service --cluster openai-twilio-demo --service webapp --desired-count 0
 aws ecs delete-service --cluster openai-twilio-demo --service websocket-server
-aws ecs delete-service --cluster openai-twilio-demo --service webapp
 
 # CloudFormationスタックの削除
 aws cloudformation delete-stack --stack-name openai-twilio-alarms
@@ -313,7 +374,6 @@ aws cloudformation delete-stack --stack-name openai-twilio-vpc
 
 # ECRリポジトリの削除
 aws ecr delete-repository --repository-name websocket-server --force
-aws ecr delete-repository --repository-name webapp --force
 
 # ECSクラスターの削除
 aws ecs delete-cluster --cluster openai-twilio-demo
@@ -324,6 +384,8 @@ aws ssm delete-parameter --name "/openai-twilio-demo/TWILIO_ACCOUNT_SID"
 aws ssm delete-parameter --name "/openai-twilio-demo/TWILIO_AUTH_TOKEN"
 aws ssm delete-parameter --name "/openai-twilio-demo/PUBLIC_URL"
 aws ssm delete-parameter --name "/openai-twilio-demo/DOMAIN_NAME"
+
+# Amplifyアプリの削除（Amplifyコンソールで手動削除）
 ```
 
 ## 🆘 トラブルシューティング
@@ -354,18 +416,25 @@ aws logs tail /aws/applicationloadbalancer/openai-twilio-demo-alb-access-logs-AC
 aws ssm get-parameter --name "/openai-twilio-demo/OPENAI_API_KEY" --with-decryption
 ```
 
+#### 5. Amplifyアプリがビルドに失敗する
+- Amplifyコンソールでビルドログを確認
+- 環境変数が正しく設定されているか確認
+- `amplify.yml`の設定を確認
+
 ## 📞 サポート
 
 問題が発生した場合は、以下を確認してください：
 
-1. **CloudWatchログ**: アプリケーションログでエラーを確認
+1. **CloudWatchログ**: WebSocketサーバーのログでエラーを確認
 2. **ECSイベント**: タスクの起動・停止イベントを確認
 3. **ALBアクセスログ**: リクエスト・レスポンスを確認
 4. **CloudWatchメトリクス**: パフォーマンス指標を確認
+5. **Amplifyビルドログ**: フロントエンドのビルドエラーを確認
 
 ## 📚 参考資料
 
 - [AWS ECS ドキュメント](https://docs.aws.amazon.com/ecs/)
+- [AWS Amplify ドキュメント](https://docs.aws.amazon.com/amplify/)
 - [Twilio ドキュメント](https://www.twilio.com/docs)
 - [OpenAI API ドキュメント](https://platform.openai.com/docs)
 - [AWS CloudFormation ドキュメント](https://docs.aws.amazon.com/cloudformation/) 

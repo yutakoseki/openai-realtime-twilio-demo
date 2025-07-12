@@ -5,22 +5,24 @@ applications:
       phases:
         preBuild:
           commands:
+            - cd webapp
             - nvm use 18
             - npm install
         build:
           commands:
+            - cd webapp
             - npm run build
       artifacts:
-        baseDirectory: .next
+        baseDirectory: webapp/.next
         files:
           - '**/*'
       cache:
         paths:
-          - node_modules/**/*
+          - webapp/node_modules/**/*
       customHeaders:
         - pattern: '**/*'
           headers:
             - key: 'Cache-Control'
               value: 'max-age=0, no-cache, no-store, must-revalidate'
-      buildPath: .
-      startCommand: npm start 
+      buildPath: webapp
+      startCommand: cd webapp && npm start 
