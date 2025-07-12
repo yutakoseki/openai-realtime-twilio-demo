@@ -79,28 +79,6 @@ Resources:
         CloudWatchMetricsEnabled: true
         MetricName: WebACLMetric
 
-  # WAF Logging Configuration
-  WAFLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/waf/${Environment}'
-      RetentionInDays: 30
-
-  WAFLoggingConfiguration:
-    Type: AWS::WAFv2::LoggingConfiguration
-    Properties:
-      LogDestinationConfigs:
-        - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/waf/${Environment}'
-      ResourceArn: !GetAtt WebACL.Arn
-      LoggingFilter:
-        DefaultBehavior: KEEP
-        Filters:
-          - Behavior: KEEP
-            Condition:
-              ActionCondition:
-                Action: BLOCK
-            Requirement: MEETS_ANY
-
 Outputs:
   WebACLArn:
     Description: WAF Web ACL ARN
