@@ -1,0 +1,110 @@
+# ====================================================================
+#  .cursorrule  ── Twilio × OpenAI Realtime API on AWS – Implementation Guide
+# ====================================================================
+
+###############################################################################
+# 1. 目的 (Purpose)
+###############################################################################
+- Twilio Programmable Voice + Media Streams を通じて受信した通話音声を  
+  OpenAI Realtime API (GPT-4o Realtime) にストリーミングし、生成音声を  
+  即時折返しする低遅延 Voice Bot を構築する。  
+- ローカル依存を排除し、**フルマネージドな AWS サービス**で本番運用可能な  
+  スケーラブル / 高可用アーキテクチャを確立する。  
+- セキュアな Secrets 管理、CI/CD、モニタリング & コスト管理を含む  
+  エンドツーエンドの DevOps パイプラインを整備する。
+
+###############################################################################
+# 2. 全体方針 (Global Strategy)
+###############################################################################
+## 2.1 アーキテクチャ分離
+1. **Web / 管理 UI** → Next.js (App Router) を Amplify Hosting SSR モードへデプロイ  
+   (CloudFront + Lambda@Edge でグローバル配信) :contentReference[oaicite:0]{index=0}  
+2. **Twilio Voice Webhook** → API Gateway HTTP API + AWS Lambda  
+   - 15 sec Hard Timeout を考慮し、Lambda に *Provisioned Concurrency=1* を設定 :contentReference[oaicite:1]{index=1}  
+3. **音声メディア ⇔ OpenAI Bridge** → WebSocket サーバ (Node.js) を  
+   ECS on Fargate (arm64) behind ALB に常駐  
+   - Twilio <Connect><Stream> で双方向 WebSocket (bidirectional) 接続 :contentReference[oaicite:2]{index=2}  
+
+## 2.2 推奨 AWS サービス
+- **静的アセット** S3 + CloudFront  
+- **機密値** Secrets Manager (ECS/Lambda へ環境変数注入) :contentReference[oaicite:3]{index=3}  
+- **CI/CD** GitHub Actions → ECR/ECS & Amplify  
+- **ログ/監視** CloudWatch Logs + X-Ray/ServiceLens :contentReference[oaicite:4]{index=4}  
+- **スケール** ECS Auto Scaling (ActiveConnections + CPU) :contentReference[oaicite:5]{index=5}  
+  Lambda = Auto + Provisioned, API Gateway WebSocket 2 h 連続接続上限 :contentReference[oaicite:6]{index=6}  
+
+## 2.3 コスト指針
+- Twilio Media Streams: **$0.004/min** + Programmable Voice 通話料 :contentReference[oaicite:7]{index=7}  
+- OpenAI Realtime: audio in ≒ $0.06/min, audio out ≒ $0.24/min :contentReference[oaicite:8]{index=8}  
+
+###############################################################################
+# 3. 実装手順 (Detailed Workflow)
+###############################################################################
+### 3.1 リポジトリ構造
+
+oot/
+├─ apps/
+│ ├─ webapp/ # Next.js UI
+│ └─ websocket-server/# Media ↔ OpenAI bridge
+├─ infra/ # CDK (TypeScript)
+├─ .github/
+│ └─ workflows/ # build / deploy pipelines
+└─ docker-compose.yml # local integration test
+
+
+### 3.2 Docker 化
+1. **webapp**: `Dockerfile` で `FROM node:20-alpine`; `next build && next start`.  
+2. **websocket-server**: expose 8080, `HEALTHCHECK CMD wget -qO- localhost:8080/healthz`.  
+3. **multi-arch build** (`linux/amd64,arm64`) で Graviton2 Fargate に対応。  
+
+### 3.3 IaC (AWS CDK v2)
+1. VPC (2 AZ) + Private Subnets  
+2. ECR Repos (`webapp`, `ws-bridge`)  
+3. ECS Cluster + Fargate Service (ALB, TG, SG)  
+4. API Gateway HTTP API → Lambda (`voiceWebhookFn`)  
+5. Amplify Hosting (`nextjsApp`)  
+6. Secrets Manager: `OPENAI_API_KEY`, `TWILIO_AUTH_TOKEN`, etc.  
+7. Output: Webhook URL (`https://api.example.com/twilio/voice`)  
+
+### 3.4 CI/CD (GitHub Actions)
+- **on: push, pull_request**  
+- Jobs: `build-deploy-webapp`, `build-deploy-ws`, `cdk-deploy-infra`  
+- OIDC → AWS STS AssumeRole でトークンレスデプロイ。  
+
+### 3.5 Twilio Console 設定
+1. 受信番号 → Voice Webhook URL を `POST` に設定。  
+2. <Connect><Stream url="wss://bridge.example.com/media"/> を返す。  
+
+### 3.6 Observability
+- Enable X-Ray on Lambda & ECS → Trace Map で E2E Latency 可視化 :contentReference[oaicite:9]{index=9}  
+- Custom CW Metric: `ActiveConnections` を WS Bridge から PutMetricData。  
+
+### 3.7 性能 & スケール検証
+1. Locust / Artillery で 10, 50, 100 同時通話を再現。  
+2. 確認項目:  
+   - RTT < 300 ms (Tokyo → Twilio US)  
+   - ECS CPU < 70 %, Memory < 60 %  
+   - Lambda p95 < 500 ms  
+
+### 3.8 レート制御
+- OpenAI Realtime のセッション数上限撤廃済。ただし **TPM/RPM** は  
+  Rate Limit Guide に従いヘッドルーム 20 % を確保 :contentReference[oaicite:10]{index=10}  
+
+###############################################################################
+# 4. 非機能要件 (NFR)
+###############################################################################
+- **可用性** ECS minCapacity=2 tasks / Multi-AZ, R53 Fail-over to ap-northeast-3  
+- **セキュリティ** ALB → WAF, TLS via ACM; Secrets rotation 90 days.  
+- **バックアップ** Terraform state & CDK Synth artifacts to S3 (versioning).  
+- **コンプライアンス** PII 音声を保存する場合は S3 SSE-KMS + 90 day Lifecycle.  
+
+###############################################################################
+# 5. 今後のタスク (Next Tasks)
+###############################################################################
+1. 🎯  WebSocket Bridge の Unit / Integration Test (Jest + supertest).  
+2. 🎯  CDK Pipeline へ *blue/green deploy* 導入 (ECS CodeDeploy).  
+3. 🎯  Serverless SnapStart or Provisioned-Concur. Schedule 最適化でコスト減。  
+4. 🎯  CloudWatch Alarm → SNS → Slack 連携 (critical alerts).  
+5. 🎯  Documentation: ADRs, Runbooks, Post-mortem template 整備。  
+
+# EOF

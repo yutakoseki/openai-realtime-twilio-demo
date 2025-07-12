@@ -1,0 +1,61 @@
+【全体方針】
+アーキテクチャの分離
+① Web／管理 UI（Next.js）
+② 音声メディア‐OpenAI ブリッジ（websocket-server）
+③ Twilio からの Webhook 受け口（TwiML 生成・イベント受信）
+これらを別々の AWS サービスにデプロイし、スケール単位と可用性を切り分けます。
+推奨 AWS サービス選定
+Next.js : AWS Amplify Hosting（又は App Runner／ECS）
+websocket-server : Amazon ECS on Fargate（長時間接続／水平スケール）
+Twilio webhook : API Gateway + AWS Lambda（瞬時レスポンス／ゼロ管理）
+静的アセット : S3 + CloudFront
+機密値 : AWS Secrets Manager / SSM Parameter Store
+CI/CD : GitHub Actions → ECR/ECS & Amplify 連携
+ログ／モニタリング : CloudWatch Logs + X-Ray
+ネットワーク & セキュリティ
+各サービスに対し独立した VPC エンドポイント / セキュリティグループを作成
+ACM で TLS 証明書を取得し、Amplify / API Gateway / CloudFront に紐付け
+環境変数は Secrets Manager からタスク定義・Lambda へインジェクト
+Twilio ルーティング
+通話開始時 Twilio が叩く Voice Webhook URL → API Gateway エンドポイント
+Lambda で TwiML を返し <Connect> で Media Stream を websocket-server の wss://…/media へ接続
+ECS 側で OpenAI Realtime API との双方向ストリームを維持し、テキスト生成結果を Twilio へ返送
+Git リポジトリ構造の整理
+Apply
+Dockerfile
+各ディレクトリに Dockerfile を追加し、CI で ECR へ push。
+コードベース修正ポイント
+websocket-server/src/server.ts
+ポート番号や CORS オリジンを環境変数で受け取る
+Health-check 用エンドポイントを追加（ECS ALB 用）
+webapp/app/api/twilio/\*\* ルート
+Lambda 側に完全移行するなら削除 or リダイレクト
+.env.example を Parameter Store 形式に合わせる (TWILIO_AUTH_TOKEN など)
+ngrok 依存のドキュメントを削除し、本番 URL を変数化
+デプロイ手順（例：CDK）
+
+1. cd infra && cdk deploy で
+   VPC, ECR, ECS Cluster, Fargate Service, ALB, API Gateway, Lambda, S3/CloudFront を生成
+2. GitHub Actions で
+   PR マージ → Docker build → ECR push → ECS service 更新
+   Amplify に対し amplify push or amplify publish
+3. Twilio Console で Voice Webhook URL を https://api.example.com/twilio/voice に設定
+   スケール & 運用
+   ECS の auto-scaling policy を CPU/メモリ利用率で設定
+   Lambda は自動スケール。コンカレンシー上限を調整しコスト制御
+   CloudWatch Alarm → SNS → Slack 通知
+   X-Ray で Lambda ↔ ECS ↔ OpenAI 呼び出しをトレーシング
+   コスト見積もりの目安
+   Amplify Hosting（≈$0.023/GB 配信 + ビルド分）
+   Fargate（CPU 0.25 vCPU / 0.5 GB × 稼働時間）
+   Lambda（100 ms 単位・呼び出し数）
+   API Gateway, CloudFront, データ転送
+   通話料と Twilio メディアストリーム課金は別途。
+   今後のタスク例
+4. Dockerfile 作成とローカル動作確認
+5. CDK/Terraform 雛形作成
+6. Secrets Manager 連携実装
+7. GitHub Actions パイプライン構築
+8. 負荷テスト & スケール検証
+9. ログ監視・通知設定
+   この方針に沿って進めれば、ローカル依存を解消しつつ AWS 上で本番運用できる構成になります。次のステップとして、まずは Docker 化とインフラ定義（CDK/Terraform）の着手をおすすめします。
