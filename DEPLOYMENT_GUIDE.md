@@ -114,8 +114,9 @@ CERTIFICATE_ARN=$(aws acm list-certificates --query "CertificateSummaryList[?Dom
 
 #### 3.2 DNS検証の完了
 1. AWS Certificate Managerコンソールで証明書の詳細を確認
-2. DNS検証用のCNAMEレコードをDNSプロバイダーに追加
-3. 検証が完了するまで待機（通常5-10分）
+2. Route53でレコードを作成をクリック
+3. DNS検証用のCNAMEレコードをDNSプロバイダーに追加
+4. 検証が完了するまで待機（通常5-10分）
 
 ### ステップ4: インフラのデプロイ
 
