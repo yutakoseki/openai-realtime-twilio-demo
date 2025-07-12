@@ -62,8 +62,14 @@ cd ..
 mkdir twilio-realtime-frontend
 cd twilio-realtime-frontend
 
-# webappの内容をコピー
-cp -r ../openai-realtime-twilio-demo/webapp/* .
+# webappの内容をコピー（webappディレクトリが存在する場合）
+if [ -d "../openai-realtime-twilio-demo/webapp" ]; then
+    cp -r ../openai-realtime-twilio-demo/webapp/* .
+else
+    echo "webappディレクトリが見つかりません。GitHubから直接クローンしてください。"
+    echo "git clone https://github.com/your-repo/twilio-realtime-frontend.git"
+    exit 1
+fi
 
 # Gitリポジトリを初期化
 git init
@@ -419,7 +425,7 @@ aws ssm get-parameter --name "/openai-twilio-demo/OPENAI_API_KEY" --with-decrypt
 #### 5. Amplifyアプリがビルドに失敗する
 - Amplifyコンソールでビルドログを確認
 - 環境変数が正しく設定されているか確認
-- `amplify.yml`の設定を確認
+- フロントエンドリポジトリの`amplify.yml`の設定を確認
 
 ## 📞 サポート
 
