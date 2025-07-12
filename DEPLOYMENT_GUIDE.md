@@ -95,7 +95,12 @@ aws ssm put-parameter \
     --type "String"
 ```
 
-### ステップ3: SSL証明書の設定（カスタムドメインがある場合）
+### ステップ3: SSL証明書の設定（サブドメイン）
+Route53 > ホストゾーン > `任意のレコード` > レコードを作成
+レコード名:任意
+レコードタイプ:A - IPv4
+値:127.0.0.1(一旦仮置き。後でALBのDNSに変更する)
+
 
 #### 3.1 SSL証明書のリクエスト
 ```bash
@@ -166,6 +171,16 @@ echo "Twilio Webhook URL: https://$ALB_DNS/twiml"
 4. Voice Configuration セクションで以下を設定:
    - **Webhook URL**: `https://[ALB_DNS]/twiml`
    - **HTTP Method**: `GET`
+
+### カスタムドメインの修正
+Route53で作成したサブドメインを修正 > エイリアスをON
+トラフィックのルーティング先:Application Load Blancer と Clasic Load Blancer
+リージョン:ap-northeast-1
+作成したロードバランサーを選択
+ロードバランサーのDNSは下記で確認できる
+```sh
+aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' --output text
+```
 
 ### ステップ6: アプリケーションのデプロイ
 
