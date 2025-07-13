@@ -137,7 +137,7 @@ aws ssm put-parameter \
 # カスタムドメインがある場合
 aws ssm put-parameter \
     --name "/openai-twilio-demo/DOMAIN_NAME" \
-    --value "your-domain.com" \
+    --value "your-custom-domain.com" \
     --type "String"
 ```
 
@@ -269,6 +269,11 @@ aws cloudformation describe-stacks --stack-name openai-twilio-alb --query 'Stack
 - ECRへのプッシュ
 - タスク定義の更新
 - サービスの更新
+
+※ そのままでも問題ないが、パラメーターストアの`/openai-twilio-demo/PUBLIC_URL`をカスタムドメインに変更
+```sh
+https://<カスタムドメイン>
+```
 
 ### ステップ9: 動作確認
 
